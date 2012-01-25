@@ -20,11 +20,12 @@ def r(fmt, offset):
  
 def string(offset):
 	s = u''
-	length = r('H', offset)
-	for i in range(length):
-		raw = r('H', offset + i*2 +2)
-		char = raw ^ 0x7E
-		s = s + unichr(char)
+	if offset > 0:
+		length = r('H', offset)
+		for i in range(length):
+			raw = r('H', offset + i*2 +2)
+			char = raw ^ 0x7E
+			s = s + unichr(char)
 	return s
  
 def binfile(offset, filename):
@@ -45,10 +46,35 @@ log('---- ' + str(datetime.now()) + ' -----------------')
  
 # read the file
 caret = 144
+# find the initial caret position - this changes between files for some reason - search for the "Cards" string
+for i in range(3):
+	if r('L', 100 + i*4) == 0x64726143:
+		caret = 132 + i*4
+		break
+ 
 boundary, card_count = r('LL', caret)
+deck_details_pointer = r('L', 92)
 next_card = r('L', caret +16)
  
 log('found ' + str(card_count) + ' cards')
+ 
+while deck_details_pointer != 0:
+	detail_label = ''.join(r('ssssssssssssssssssssssss', deck_details_pointer + 4)).strip('\0x0')
+	detail_string = ''
+	detail_data = r('L', deck_details_pointer + 40)
+ 
+	if detail_label == 'CreationDate':
+		# not a pointer, this is a timestamp
+		creation_date = datetime.fromtimestamp(detail_data)
+		detail_string = creation_date.strftime('%Y %B %d')
+	elif detail_label == 'GUID':
+		detail_string = str(detail_data)
+	elif detail_label == 'Ordered':
+		detail_string = str(detail_data)
+	else:
+		detail_string = string(detail_data)
+	log('  ' + detail_label + ': ' + detail_string)
+	deck_details_pointer = r('L', deck_details_pointer)
  
 while (next_card != 0):
 	address = next_card
