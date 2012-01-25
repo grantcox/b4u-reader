@@ -52,16 +52,37 @@ log('found ' + str(card_count) + ' cards')
  
 while (next_card != 0):
 	address = next_card
-	next_card, card_num, boundary, card_data, b = r('LLLLL', next_card)
-	log('card ' + str(card_num) + ' @' + str(address) + ' data: ' + str(card_data) + ' b: ' + str(b))
+	next_card, card_num, boundary, card_data, card_attributes = r('LLLLL', next_card)
+	log('card ' + str(card_num) + ' @' + str(address) + ' data: ' + str(card_data) + ' attributes: ' + str(card_attributes))
  
-	card_head, number, english_title, english_subtitle, foreign_title, foreign_subtitle = r('LLLLLL', card_data)
-	unknown, unknown, unknown, unknown, audio, image = r('LLLLLL', card_data + 24)
+	attributes = [
+		['native_title', 4],
+		['native_subtitle', 8],
+		['foreign_title', 16],
+		['foreign_subtitle', 32],
+		['native_alt_answer', 64],
+		['foreign_alt_answer', 128],
+		['foreign_translit', 256],
+		['native_tooltip', 512],
+		['foreign_audio', 1024],
+		['native_audio', 2048],
+		['image', 4096]
+	]
  
-	english_title = string(english_title)
-	english_subtitle = string(english_subtitle)
-	foreign_title = string(foreign_title)
-	foreign_subtitle = string(foreign_subtitle)
-	binfile(audio, 'card'+str(card_num)+'.ogg')
-	binfile(image, 'card'+str(card_num)+'.jpg')
-	log('  ' + foreign_title + ' : ' + foreign_subtitle + ' => ' + english_title + ' : ' + english_subtitle)
+	data_pointer = card_data + 8
+	for attr in attributes:
+		if card_attributes & attr[1]:
+			#log('card has ' + str(attr[0]) + ' @ ' + str(data_pointer))
+			data_address = r('L', data_pointer)
+			if attr[0] == 'foreign_audio':
+				binfile(data_address, 'card'+str(card_num)+'_foreign.ogg')
+			elif attr[0] == 'native_audio':
+				binfile(data_address, 'card'+str(card_num)+'_native.ogg')
+			elif attr[0] == 'image':
+				binfile(data_address, 'card'+str(card_num)+'.jpg')
+			else:
+				value = string(data_address)
+				if value != '':
+					log(attr[0] + ': ' + string(data_address))
+ 
+			data_pointer = data_pointer + 4
